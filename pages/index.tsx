@@ -21,6 +21,8 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<Item[]>([]);
+  const [lowStockOpen, setLowStockOpen] = useState(false);
 
 
   const onFinish = async (values: any) => {
@@ -96,47 +98,69 @@ export default function Home() {
       .catch(err => message.error(err));
   };
 
+  const showLowStock = async () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+    fetch('/api/low_stock')
+      .then(res => res.json())
+      .then(data => {
+        setLowStockItems(data);
+        setLowStockOpen(true);
+      })
+      .catch(err => message.error(err));
+  };
+
 
   const columns: ColumnsType<Item> = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (text) => <a>{text}</a>,
-    },
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text) => <a>{text}</a>,
-    },
-    {
-      title: 'Quantity',
-      dataIndex: 'quantity',
-      key: 'quantity',
-    },
-    {
-      title: 'category',
-      dataIndex: 'category',
-      key: 'category',
-    },
-    {
-      title: 'Price',
-      dataIndex: 'price',
-      key: 'price',
-    },
-
-    {
-      title: 'Action',
-      key: 'action',
-      render: (_, record) => (
-          <Space size="middle">
-            <a onClick={()=>onDelete(record)}>Delete</a>
-            <a onClick={() => showModal(record)}>Edit</a>
-          </Space>
-      ),
-    },
-  ];
+  {
+    title: 'ID',
+    dataIndex: 'id',
+    key: 'id',
+    sorter: (a, b) => a.id - b.id,
+    sortDirections: ['ascend', 'descend'],
+  },
+  {
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    sorter: (a, b) => a.name.localeCompare(b.name),
+    sortDirections: ['ascend', 'descend'],
+  },
+  {
+    title: "Quantity",
+    dataIndex: "quantity",
+    sorter: (a, b) => a.quantity - b.quantity,
+    render: (q: number) => (
+      <span style={{ color: q < 7 ? "red" : "inherit" }}>
+        {q}
+      </span>
+    ),
+  },
+  {
+    title: 'Category',
+    dataIndex: 'category',
+    key: 'category',
+    sorter: (a, b) => a.category.localeCompare(b.category),
+    sortDirections: ['ascend', 'descend'],
+  },
+  {
+    title: 'Price',
+    dataIndex: 'price',
+    key: 'price',
+    sorter: (a, b) => a.price - b.price,
+    sortDirections: ['ascend', 'descend'],
+  },
+  {
+    title: 'Action',
+    key: 'action',
+    render: (_, record) => (
+      <Space size="middle">
+        <a onClick={() => showModal(record)}>Edit</a>
+        <a onClick={() => onDelete(record)}>Delete</a>
+      </Space>
+    ),
+  },
+];
 
 
   const onReset = () => {
@@ -176,6 +200,33 @@ export default function Home() {
     <Button type="primary" onClick={() => showModal()}>
       Add Item
     </Button>
+    <Button danger style={{ marginLeft: 10 }} onClick={showLowStock}>
+      Low Stock Items
+    </Button>
+    <Modal
+      title="Low Stock Items (Quantity < 7)"
+      open={lowStockOpen}
+      onCancel={() => setLowStockOpen(false)}
+      footer={null}
+      width={600}
+    >
+      {lowStockItems.length === 0 ? (
+        <p>No low stock items 🎉</p>
+      ) : (
+        <Table
+          dataSource={lowStockItems}
+          rowKey="id"
+          pagination={false}
+          columns={[
+            { title: "ID", dataIndex: "id" },
+            { title: "Name", dataIndex: "name" },
+            { title: "Quantity", dataIndex: "quantity" },
+            { title: "Category", dataIndex: "category" },
+            { title: "Price", dataIndex: "price" },
+          ]}
+        />
+      )}
+    </Modal>
     <Modal title={editingItem ? "Edit Item" : "Add Item"}
             onCancel={handleCancel}
            open={isModalOpen} footer={null}  width={800}>
