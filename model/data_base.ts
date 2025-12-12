@@ -1,6 +1,7 @@
-export type User = {
-    id : number;
-    email: string;
-    name: string;
-    address: string;
+export type Item = {
+  id: number;
+  name: string;
+  quantity: number;
+  category: string;
+  price: number;
 }
