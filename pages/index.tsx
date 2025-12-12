@@ -5,6 +5,8 @@ import {ColumnsType} from "antd/es/table";
 import {Button, Form, Input, message, Modal, Select, Space, Table, Tag} from "antd";
 import { faker } from '@faker-js/faker';
 import {Item} from ".prisma/client";
+import { Card, Statistic, Row, Col, Typography } from "antd";
+const { Title } = Typography;
 const inter = Inter({ subsets: ['latin'] })
 
 const layout = {
@@ -23,6 +25,10 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Item[]>([]);
   const [lowStockOpen, setLowStockOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+
 
 
   const onFinish = async (values: any) => {
@@ -130,11 +136,11 @@ export default function Home() {
     title: "Quantity",
     dataIndex: "quantity",
     sorter: (a, b) => a.quantity - b.quantity,
-    render: (q: number) => (
-      <span style={{ color: q < 7 ? "red" : "inherit" }}>
-        {q}
-      </span>
-    ),
+    render: (q: number) => {
+      if (q < 4) return <Tag color="red">Low ({q})</Tag>;
+      if (q < 10) return <Tag color="orange">{q}</Tag>;
+      return <Tag color="green">{q}</Tag>;
+    },
   },
   {
     title: 'Category',
@@ -156,7 +162,17 @@ export default function Home() {
     render: (_, record) => (
       <Space size="middle">
         <a onClick={() => showModal(record)}>Edit</a>
-        <a onClick={() => onDelete(record)}>Delete</a>
+        <a onClick={() => Modal.confirm({
+              title: "Delete Item",
+              content: `Are you sure you want to delete ${record.name}?`,
+              okText: "Delete",
+              okType: "danger",
+              onOk: () => onDelete(record),
+            })
+          }
+        >
+          Delete
+        </a>
       </Space>
     ),
   },
@@ -197,12 +213,119 @@ export default function Home() {
   if (!items) return "Give me a second";
 
   return  <>
-    <Button type="primary" onClick={() => showModal()}>
-      Add Item
-    </Button>
-    <Button danger style={{ marginLeft: 10 }} onClick={showLowStock}>
-      Low Stock Items
-    </Button>
+  <Title level={3}>Inventory Management</Title>
+
+  <Row gutter={16} style={{ marginBottom: 16 }}>
+    <Col span={8}>
+      <Card>
+        <Statistic title="Total Items" value={items.length} />
+      </Card>
+    </Col>
+    <Col span={8}>
+      <Card>
+        <Statistic
+          title="Low Stock Items"
+          value={items.filter(i => i.quantity < 7).length}
+          valueStyle={{ color: '#cf1322' }}
+        />
+      </Card>
+    </Col>
+    <Col span={8}>
+      <Card>
+        <Statistic
+          title="Total Quantity"
+          value={items.reduce((sum, i) => sum + i.quantity, 0)}
+        />
+      </Card>
+    </Col>
+  </Row>
+
+
+    <Space style={{ marginBottom: 16 }}>
+      <Button type="primary" onClick={() => showModal()}>
+        Add Item
+      </Button>
+
+      <Button danger onClick={showLowStock}>
+        Low Stock Items
+      </Button>
+
+      <Button onClick={() => setRemoveOpen(true)}>
+        Remove Quantity
+      </Button>
+    </Space>
+
+    
+    <Modal
+      title="Remove Quantity"
+      open={removeOpen}
+      onCancel={() => setRemoveOpen(false)}
+      footer={null}
+    >
+      <Form
+        onFinish={(values) => {
+          fetch('/api/preview_remove_quantity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(values),
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.error) {
+                message.error(data.error);
+              } else {
+                setPreviewData(data);
+                setPreviewOpen(true);
+                setRemoveOpen(false);
+              }
+            });
+        }}
+      >
+        <Form.Item name="id" label="Item ID" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+
+        <Form.Item name="quantity" label="Quantity to Remove" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+
+        <Button type="primary" htmlType="submit">
+          Preview Changes
+        </Button>
+      </Form>
+    </Modal>
+
+    <Modal
+      title="Confirm Inventory Change"
+      open={previewOpen}
+      onCancel={() => setPreviewOpen(false)}
+      onOk={() => {
+        fetch('/api/confirm_remove_quantity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: previewData.id,
+            removeQuantity: previewData.removeQuantity,
+          }),
+        })
+          .then(res => res.json())
+          .then(updated => {
+            message.success("Inventory updated");
+
+            setItems(items.map(i =>
+              i.id === updated.id ? updated : i
+            ));
+
+            setPreviewOpen(false);
+          });
+      }}
+    >
+      <p><b>Item:</b> {previewData?.name}</p>
+      <p><b>Current Quantity:</b> {previewData?.oldQuantity}</p>
+      <p><b>Quantity Removed:</b> {previewData?.removeQuantity}</p>
+      <p><b>New Quantity:</b> {previewData?.newQuantity}</p>
+    </Modal>
+
     <Modal
       title="Low Stock Items (Quantity < 7)"
       open={lowStockOpen}
@@ -211,22 +334,18 @@ export default function Home() {
       width={600}
     >
       {lowStockItems.length === 0 ? (
-        <p>No low stock items 🎉</p>
+        <p>No low stock items</p>
       ) : (
         <Table
-          dataSource={lowStockItems}
-          rowKey="id"
-          pagination={false}
-          columns={[
-            { title: "ID", dataIndex: "id" },
-            { title: "Name", dataIndex: "name" },
-            { title: "Quantity", dataIndex: "quantity" },
-            { title: "Category", dataIndex: "category" },
-            { title: "Price", dataIndex: "price" },
-          ]}
-        />
+        columns={columns}
+        dataSource={items}
+        rowKey="id"
+        bordered
+        pagination={{ pageSize: 8 }}
+      />
       )}
     </Modal>
+    
     <Modal title={editingItem ? "Edit Item" : "Add Item"}
             onCancel={handleCancel}
            open={isModalOpen} footer={null}  width={800}>
@@ -263,7 +382,7 @@ export default function Home() {
         </Form.Item>
       </Form>
     </Modal>
-    {/*<p>{JSON.stringify(users)}</p>*/}
+    {/*<p>{JSON.stringify(items)}</p>*/}
     <Table columns={columns} dataSource={items} />;
   </>;
 
