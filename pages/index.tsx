@@ -137,7 +137,7 @@ export default function Home() {
     dataIndex: "quantity",
     sorter: (a, b) => a.quantity - b.quantity,
     render: (q: number) => {
-      if (q < 4) return <Tag color="red">Low ({q})</Tag>;
+      if (q < 6) return <Tag color="red">Low ({q})</Tag>;
       if (q < 10) return <Tag color="orange">{q}</Tag>;
       return <Tag color="green">{q}</Tag>;
     },
@@ -177,6 +177,15 @@ export default function Home() {
     ),
   },
 ];
+
+
+const lowStockColumns: ColumnsType<Item> = [
+    { title: 'ID', dataIndex: 'id', key: 'id' },
+    { title: 'Name', dataIndex: 'name', key: 'name' },
+    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity' },
+    { title: 'Category', dataIndex: 'category', key: 'category' },
+    { title: 'Price', dataIndex: 'price', key: 'price' },
+  ];
 
 
   const onReset = () => {
@@ -337,8 +346,8 @@ export default function Home() {
         <p>No low stock items</p>
       ) : (
         <Table
-        columns={columns}
-        dataSource={items}
+        columns={lowStockColumns}
+        dataSource={lowStockItems}
         rowKey="id"
         bordered
         pagination={{ pageSize: 8 }}
